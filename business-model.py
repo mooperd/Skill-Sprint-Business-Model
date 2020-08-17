@@ -14,7 +14,7 @@ starting_conditions = {
     "employee_min_jobs_per_month": 2,
     "employee_max_jobs_per_month": 4,
     "new_customers": 0,
-    "job_price": 5000,
+    "job_price": 7500,
     "job_backlog": 0,
     "founder_stress": 0,
     "total_monthly_costs": 0,
@@ -29,11 +29,11 @@ starting_conditions = {
 }
 
 variables = {
-    "customer_acquisition_cost": 0.9,  # 0.9 is the lowest sensible value
+    "customer_acquisition_cost": 0.85,  # 0.9 is the lowest sensible value
     "customer_acquisition_spend": 0,
-    "jobs_per_acquired_customer": 0.05,
+    "jobs_per_acquired_customer": 1.01,
     "per_employee_monthly_cost": 1.01,
-    "price_per_skill_sprint": 0
+    "price_per_skill_sprint": 1.01
 }
 
 months = [
@@ -59,9 +59,10 @@ def run_month(conditions, month):
     conditions["new_jobs"] = conditions["new_customers"] * conditions["jobs_per_acquired_customer"]
     conditions["job_backlog"] += conditions["new_jobs"]
 
-    # Calculate the cost of current employees
+    # Calculate the cost of employees
     employee_cost = conditions["number_of_employees"] * conditions["per_employee_monthly_cost"]
-    employee_cost += conditions["founder_salaries"]
+    conditions["monthly_costs"]["employee_cost"] = employee_cost
+    conditions["monthly_costs"]["founder_salaries"] = conditions["founder_salaries"]
 
     # Calculate business expense.
     business_cost = random.randint(conditions["business_cost_min"], conditions["business_cost_max"])
@@ -101,8 +102,8 @@ def run_month(conditions, month):
 
     # conditions["number_of_employees"]
     conditions["customer_acquisition_cost"] *= variables["customer_acquisition_cost"]
-    conditions["customer_acquisition_spend"] += variables["customer_acquisition_spend"]
-    conditions["jobs_per_acquired_customer"] += variables["jobs_per_acquired_customer"]
+    conditions["customer_acquisition_spend"] *= variables["customer_acquisition_spend"]
+    conditions["jobs_per_acquired_customer"] *= variables["jobs_per_acquired_customer"]
     conditions["per_employee_monthly_cost"] *= variables["per_employee_monthly_cost"]
     # conditions["employee_min_jobs_per_month"]
     # conditions["employee_max_jobs_per_month"]
