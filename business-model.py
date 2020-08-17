@@ -30,7 +30,7 @@ starting_conditions = {
 
 variables = {
     "customer_acquisition_cost": 0.85,  # 0.9 is the lowest sensible value
-    "customer_acquisition_spend": 0,
+    "customer_acquisition_spend": 1,
     "jobs_per_acquired_customer": 1.01,
     "per_employee_monthly_cost": 1.01,
     "price_per_skill_sprint": 1.01
