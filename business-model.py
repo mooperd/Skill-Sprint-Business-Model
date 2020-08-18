@@ -2,6 +2,8 @@ import json
 import csv
 import copy
 import random
+import base64
+import arrow
 from math import floor
 
 starting_conditions = {
@@ -9,13 +11,15 @@ starting_conditions = {
     "number_of_employees": 1,
     "customer_acquisition_cost": 10000,
     "customer_acquisition_spend": 10000,
-    "jobs_per_acquired_customer": 1,
+    "max_jobs_per_customer": 3,
     "per_employee_monthly_cost": 5000,
     "employee_min_jobs_per_month": 2,
     "employee_max_jobs_per_month": 4,
-    "new_customers": 0,
+    "customers": [],
+    "customer_count": 0,
     "job_price": 7500,
     "job_backlog": 0,
+    "new_jobs": 0,
     "founder_stress": 0,
     "total_monthly_costs": 0,
     "monthly_costs": {},
@@ -31,7 +35,7 @@ starting_conditions = {
 variables = {
     "customer_acquisition_cost": 0.85,  # 0.9 is the lowest sensible value
     "customer_acquisition_spend": 1,
-    "jobs_per_acquired_customer": 1.01,
+    "max_jobs_per_customer": 1.05,
     "per_employee_monthly_cost": 1.01,
     "price_per_skill_sprint": 1.01
 }
@@ -47,17 +51,35 @@ months = [
 
 monthy_output = []
 
+def createcustomer(max_jobs_per_customer):
+    customer = {}
+    customer["name"] = base64.b64encode(arrow.utcnow().format('SSSSSSSSS').encode('ascii'))
+    customer["max_jobs"] = max_jobs_per_customer
+    customer["jobs_put_in_backlog"] = 0
+    customer["chance_of_job"] = random.randint(0,10)
+    return customer
+    
 def run_month(conditions, month):    
     conditions["month"] = month
-    
-    # Calculate how many new customers we get and add them to the backlog
-    new_customers = conditions["customer_acquisition_spend"] / conditions["customer_acquisition_cost"]
-    conditions["new_customers"] = new_customers
+    conditions["new_jobs"] = 0
+    # Calculate how many new customers we get and add them to customer list 
+    # after adding their first job to the backlog.
+    new_customers = floor(conditions["customer_acquisition_spend"] / conditions["customer_acquisition_cost"])
+    # Charge customer acquisition to the monthly account.
     conditions["monthly_costs"]["customer_acquisition_spend"] = conditions["customer_acquisition_spend"]
 
-    # Calculate how many jobs go into the backlog
-    conditions["new_jobs"] = conditions["new_customers"] * conditions["jobs_per_acquired_customer"]
-    conditions["job_backlog"] += conditions["new_jobs"]
+    while new_customers > 0:
+        customer = createcustomer(conditions["max_jobs_per_customer"])
+        new_customers -= 1
+
+        # Add first job to the backlog
+        # TODO: Function me?
+        conditions["new_jobs"] += 1
+        customer["jobs_put_in_backlog"] += 1
+        conditions["customers"].append(customer)
+
+    # Count customers
+    conditions["customer_count"] = len(conditions["customers"])
 
     # Calculate the cost of employees
     employee_cost = conditions["number_of_employees"] * conditions["per_employee_monthly_cost"]
@@ -85,6 +107,15 @@ def run_month(conditions, month):
     conditions["revenue"] = revenue
     conditions["completed_jobs"] = completed_jobs
 
+    # Calculate new jobs from existing customers
+    for customer in conditions["customers"]:
+        # Throw the dice
+        random_int = random.randint(0,10)
+        if floor(customer["max_jobs"]) > customer["jobs_put_in_backlog"]:
+            if customer["chance_of_job"] >= random_int:
+                conditions["new_jobs"] += 1
+                customer["jobs_put_in_backlog"] += 1
+
     # Hire new employees
     if conditions["job_backlog"] > conditions["employee_min_jobs_per_month"]:
         required_employees = floor(conditions["job_backlog"] / conditions["employee_min_jobs_per_month"])
@@ -103,8 +134,11 @@ def run_month(conditions, month):
     # conditions["number_of_employees"]
     conditions["customer_acquisition_cost"] *= variables["customer_acquisition_cost"]
     conditions["customer_acquisition_spend"] *= variables["customer_acquisition_spend"]
-    conditions["jobs_per_acquired_customer"] *= variables["jobs_per_acquired_customer"]
+    conditions["max_jobs_per_customer"] *= variables["max_jobs_per_customer"]
     conditions["per_employee_monthly_cost"] *= variables["per_employee_monthly_cost"]
+    # Add jobs into the backlog
+    conditions["job_backlog"] += conditions["new_jobs"]
+
     # conditions["employee_min_jobs_per_month"]
     # conditions["employee_max_jobs_per_month"]
     # conditions["new_customers"]
