@@ -5,6 +5,7 @@ import copy
 import random
 import base64
 import arrow
+import sys
 from math import floor
 import gspread
 
@@ -77,7 +78,7 @@ class Business:
         self.monthly_costs_total = 0
 
 
-    def calculate_new_customers(self):
+    def calculate_new_customers(self, month):
         # Calculate how many new customers we get. 
         new_customers_this_month = floor(
             self.customer_acquisition_spend / 
@@ -201,7 +202,10 @@ def write_data_to_sheet(data, condition):
         )
     sheet = gc.open("skill_sprint_model")
     # Get the column headers
-    headers = list(data[0].keys())
+    headers_keys = list(data[0].keys())
+    headers = []
+    for header in headers_keys:
+        headers.append("{}_{}".format(condition, header))
     # We have to make everything a list of lists.
     row_list_of_lists = []
     # Iterate through everything and turn embedded
@@ -212,60 +216,21 @@ def write_data_to_sheet(data, condition):
                 row[key] = str(json.dumps(row[key]))
 
         row_list_of_lists.append(list(row.values()))
-
     try:
         sheet.add_worksheet(title=condition, rows="100", cols="20")
     except: # Lazy
         pass
     worksheet = sheet.worksheet(condition)
-    worksheet.update('A1:AA1', [ headers ])    
-    worksheet.update('A2:AA25', row_list_of_lists)
+    try:
+        worksheet.update('A1:AA1', [ headers ])    
+        worksheet.update('A2:AA26', row_list_of_lists)
+    except:
+        the_type, the_value, the_traceback = sys.exc_info()
+        pp = pprint.PrettyPrinter(indent=4)
+        pp.pprint(data)
+        print(the_type, the_value, the_traceback)
+        exit(1)
 
-
-# TODO: Are these variables "Real" KPIs that can be measured?
-
-conditions = [{
-    'scenario_name': 'optimist',
-    'business_cost_max': 15000,
-    'business_cost_min': 5000,
-    'capital': 250000,
-    'completed_jobs': 0,
-    'customer_acquisition_cost': 2000,
-    'customer_acquisition_spend': 10000,
-    'customer_count': 0,
-    'customers': [],
-    'employee_max_jobs_per_month': 4,
-    'employee_min_jobs_per_month': 2,
-    'founder_salaries': 10000,
-    'founder_stress': 0,
-    'job_backlog': 0,
-    'job_price': 7500,
-    'max_jobs_per_customer': 2,
-    'month': 'Jan 21',
-    'monthly_balance': 0,
-    'monthly_costs': {},
-    'new_jobs': 2,
-    'number_of_employees': 1,
-    'per_employee_monthly_cost': 5000,
-    'revenue': 0,
-    'total_monthly_costs': 0,
-    'monthly_pc_adjustments': {
-        "customer_acquisition_cost": -0.025,
-        "customer_acquisition_spend": 0,
-        "max_jobs_per_customer": 0.05, # Not a real KPI
-        "per_employee_monthly_cost": 0.01,
-        "price_per_skill_sprint": 0.00
-        }
-    }]
-
-months = [
-        "Jan 21","Feb 21","Mar 21","Apr 21",
-        "May 21","Jun 21","Jul 21","Aug 21",
-        "Sep 21","Oct 21","Nov 21","Dec 21",
-        "Jan 22","Feb 22","Mar 22","Apr 22",
-        "May 22","Jun 22","Jul 22","Aug 22",
-        "Sep 22","Oct 22","Nov 22","Dec 22"
-        ]
 
 
 def run_month(business, month):
@@ -277,23 +242,22 @@ def run_month(business, month):
     # collect new jobs from old customers.
     business.collect_new_jobs()
     # How many customers do we get this month?
-    business.calculate_new_customers()
+    business.calculate_new_customers(month)
     # Revenue minus costs
     business.calculate_monthly_balance()
     ### After the months business is concluded we can
     ### make decisions and adjust conditions.
     business.adjust_conditions()
 
-
-output_list = []
-
-for condition in conditions:
-    business = Business(condition)
-    for month in months:
-        business.month = month
-        run_month(business, month)
-        output_list.append(business.dump_dict())
-    write_data_to_sheet(output_list, condition["scenario_name"])
+def run_model(conditions, months):
+    for condition in conditions:
+        output_list = []
+        business = Business(condition)
+        for month in months:
+            business.month = month
+            run_month(business, month)
+            output_list.append(business.dump_dict())
+        write_data_to_sheet(output_list, condition["scenario_name"])
     
 
 
